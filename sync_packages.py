@@ -82,14 +82,16 @@ def sync_repositories(packages_file):
             # 确定需要复制的源路径
             if folder_path:
                 source_path = os.path.join(temp_dir, folder_path)
-                if not os.path.exists(source_path):
-                    print(f"Source path {source_path} does not exist, skipping...")
-                    shutil.rmtree(temp_dir)
-                    continue
                 target_path = os.path.join(".", os.path.basename(source_path))
             else:
                 source_path = temp_dir
-                target_path = "."
+                target_path = os.path.join(".", repo_name)
+
+            # 检查源路径是否存在
+            if not os.path.exists(source_path):
+                print(f"Source path {source_path} does not exist, skipping...")
+                shutil.rmtree(temp_dir)
+                continue
 
             # 复制文件到目标路径
             print(f"Copying folder {source_path} to {target_path}...")

@@ -2,171 +2,78 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-import logging
-
-# 设置日志格式
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-
-# 定义常量
-PACKAGES_FILE = "packages"
-TEMP_DIR = "_temp_repos"
-TARGET_DIR = "."
 
 
-def parse_packages_file():
-    """解析 packages 文件，返回仓库地址和路径的列表"""
-    logging.info("Parsing packages file...")
-    repositories = []
-    with open(PACKAGES_FILE, "r") as f:
+def parse_packages_file(packages_path):
+    """解析 packages 文件，返回仓库地址和路径信息"""
+    repos = []
+    with open(packages_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if line.startswith("#") or not line:  # 跳过注释和空行
+            if not line or line.startswith("#"):  # 跳过注释和空行
                 continue
-            if ";" not in line:
-                logging.warning(f"Invalid line in packages file: {line}")
-                continue
-            repo_info = line.split(";")[0].strip()
-            if "," in repo_info:
-                repo_url, sub_path = repo_info.split(",")
-                repositories.append((repo_url.strip(), sub_path.strip()))
+            if "," in line:
+                repo_url, folder_path = line.split(",", 1)
+                repos.append((repo_url.strip().rstrip(";"), folder_path.strip()))
             else:
-                repositories.append((repo_info.strip(), None))
-    logging.info(f"Parsed repositories: {repositories}")
-    return repositories
+                repos.append((line.strip().rstrip(";"), None))
+    return repos
 
 
-def clone_and_extract(repo_url, sub_path=None):
-    """克隆仓库并提取指定路径的内容"""
-    logging.info(f"Cloning repository: {repo_url}")
+def clone_and_sync_repo(repo_url, folder_path=None):
+    """克隆仓库并保留指定文件夹的内容"""
     repo_name = repo_url.split("/")[-1].replace(".git", "")
-    temp_repo_path = Path(TEMP_DIR) / repo_name
+    print(f"Cloning {repo_url}...")
+    subprocess.run(["git", "clone", repo_url], check=True)
 
-    if temp_repo_path.exists():
-        shutil.rmtree(temp_repo_path)  # 清理旧的临时目录
-
-    # 克隆仓库（避免生成 .git 目录）
-    try:
-        subprocess.run(
-            [
-                "git",
-                "clone",
-                "--depth",
-                "1",
-                "--filter=blob:none",
-                "--no-checkout",
-                repo_url,
-                str(temp_repo_path),
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        logging.debug("Repository cloned successfully.")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to clone repository {repo_url}: {e.stderr.decode()}")
-        return
-
-    # 提取指定路径的内容
-    source_path = temp_repo_path / sub_path if sub_path else temp_repo_path
-    target_path = Path(TARGET_DIR) / repo_name if not sub_path else Path(TARGET_DIR) / sub_path.split("/")[-1]
-
-    if source_path.exists():
-        if target_path.exists():
-            shutil.rmtree(target_path)  # 删除旧内容
-
-        # 复制内容到目标目录
-        shutil.copytree(source_path, target_path)
-        logging.info(f"Copied contents from {source_path} to {target_path}")
+    if folder_path:
+        # 如果指定了文件夹，只保留该文件夹及其内容
+        target_dir = Path(repo_name) / folder_path
+        if not target_dir.exists():
+            raise FileNotFoundError(f"Folder {folder_path} not found in {repo_name}")
+        print(f"Retaining folder {folder_path} from {repo_name}...")
+        shutil.move(str(target_dir), folder_path)
+        shutil.rmtree(repo_name)
     else:
-        logging.warning(f"Path {sub_path} does not exist in repository {repo_url}")
+        # 如果没有指定文件夹，保留整个仓库内容
+        print(f"Retaining entire repository {repo_name}...")
+        shutil.move(repo_name, repo_name)
 
 
-def remove_deleted_repos(existing_repos):
-    """删除不再存在于 packages 文件中的仓库"""
-    logging.info("Checking for deleted repositories...")
-    current_items = {item.name for item in Path(TARGET_DIR).iterdir()}  # 获取所有文件和目录
-    repos_in_packages = {repo.split("/")[-1].replace(".git", "") for repo, _ in existing_repos}
-
-    logging.info(f"Current items: {current_items}")
-    logging.info(f"Repositories in packages file: {repos_in_packages}")
-
-    # 仅删除在 packages 文件中定义的仓库目录
-    for repo_name in repos_in_packages:
-        repo_path = Path(TARGET_DIR) / repo_name
-        if repo_path.exists() and repo_name not in current_items:
-            logging.info(f"Removing repository directory {repo_path}")
-            shutil.rmtree(repo_path)
-
-    # 跳过所有未定义的文件和目录
-    for item_name in current_items - repos_in_packages:
-        logging.info(f"Skipping non-repository item: {item_name}")
-
-
-def safe_rmtree(path):
-    """安全地删除目录及其内容"""
-    def on_error(func, path, exc_info):
-        """处理删除失败的情况"""
-        if not os.access(path, os.W_OK):
-            logging.warning(f"Changing permissions for {path} to make it writable")
-            os.chmod(path, 0o700)
-            func(path)
-        else:
-            logging.warning(f"Failed to remove {path}: {exc_info}")
-
-    if os.path.exists(path):
-        logging.info(f"Attempting to remove directory: {path}")
-        shutil.rmtree(path, onerror=on_error)
-    else:
-        logging.info(f"Directory does not exist: {path}")
-
-
-def is_git_repo():
-    """检查当前目录是否是一个 Git 仓库"""
-    return subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 0
-
-
-def commit_and_push_changes():
-    """提交更改并推送到远程仓库"""
-    if not is_git_repo():
-        logging.error("Not a valid Git repository. Aborting commit and push.")
-        return
-
-    try:
-        subprocess.run(["git", "config", "--global", "user.name", "GitHub Actions"], check=True)
-        subprocess.run(["git", "config", "--global", "user.email", "actions@github.com"], check=True)
-
-        subprocess.run(["git", "add", "."], check=True)
-        if subprocess.run(["git", "diff", "--quiet", "--staged"], capture_output=True).returncode != 0:
-            subprocess.run(["git", "commit", "-m", "Automated sync of packages"], check=True)
-        subprocess.run(["git", "push", "origin", "main"], check=True)
-        logging.info("Changes committed and pushed successfully.")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to commit or push changes: {e.stderr.decode()}")
+def remove_old_repos(current_repos):
+    """删除不再需要的旧仓库内容"""
+    for item in Path(".").iterdir():
+        if item.is_dir() and item.name not in current_repos:
+            print(f"Removing old repository content: {item.name}")
+            shutil.rmtree(item)
 
 
 def main():
+    packages_path = "packages"
+    if not Path(packages_path).exists():
+        raise FileNotFoundError(f"{packages_path} file not found!")
+
     # 解析 packages 文件
-    repositories = parse_packages_file()
+    repos = parse_packages_file(packages_path)
+    current_repos = set()
 
-    # 创建临时目录
-    os.makedirs(TEMP_DIR, exist_ok=True)
+    # 删除所有现有的 .git 文件夹
+    for git_dir in Path(".").rglob(".git"):
+        shutil.rmtree(git_dir)
 
-    # 同步每个仓库
-    for repo_url, sub_path in repositories:
-        clone_and_extract(repo_url, sub_path)
+    # 克隆并同步每个仓库
+    for repo_url, folder_path in repos:
+        try:
+            clone_and_sync_repo(repo_url, folder_path)
+            if folder_path:
+                current_repos.add(folder_path)
+            else:
+                current_repos.add(repo_url.split("/")[-1].replace(".git", ""))
+        except Exception as e:
+            print(f"Error processing {repo_url}: {e}")
 
-    # 删除不再存在的仓库
-    remove_deleted_repos(repositories)
-
-    # 清理临时目录
-    safe_rmtree(TEMP_DIR)
-
-    # 提交更改并推送到远程仓库
-    commit_and_push_changes()
+    # 删除不再需要的旧仓库内容
+    remove_old_repos(current_repos)
 
 
 if __name__ == "__main__":

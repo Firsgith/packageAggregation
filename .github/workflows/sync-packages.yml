@@ -27,7 +27,7 @@ jobs:
       # 运行 Python 脚本同步仓库
       - name: Run Python script to sync repositories
         run: |
-          python sync_packages.py
+          python .github/scripts/sync_packages.py
 
       # 配置 Git 凭据并提交更改
       - name: Configure Git and commit changes

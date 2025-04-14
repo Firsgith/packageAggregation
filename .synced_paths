@@ -1,1 +1,6 @@
 luci-app-ddns-go
+luci-app-zerotierV2
+luci-app-cifs-mount
+luci-app-tailscale
+luci-app-wolplus
+luci-theme-argon

@@ -1,4 +1,4 @@
-name: Sync packages from repositories
+name: Sync packages
 
 on:
   workflow_dispatch: # 手动触发

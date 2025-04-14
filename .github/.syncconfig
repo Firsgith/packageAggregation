@@ -1,6 +1,4 @@
-# 保留重要文件和目录
-README.md
-LICENSE
-.github/
+.github
+.git
+.syncconfig
 packages
-scripts/utils/

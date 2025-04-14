@@ -1,37 +1,39 @@
-name: Sync packages
+name: Sync packages from repositories
 
 on:
-  workflow_dispatch: # 允许手动触发
-  schedule:
-    - cron: '0 0 1 * *' # 每月第一天凌晨触发一次
+  workflow_dispatch: # 手动触发
+  push: # 或者在特定分支推送时触发
+    branches:
+      - main
 
 jobs:
-  sync:
+  sync-packages:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # 检出主仓库
+      - name: Checkout main repository
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
+      # 安装 Python 和依赖
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.10"
 
-      - name: Install dependencies
+      # 运行 Python 脚本同步仓库
+      - name: Run Python script to sync repositories
         run: |
-          python -m pip install --upgrade pip
-          pip install requests
+          python scripts/sync_packages.py
 
-      - name: Run sync script
-        run: python sync_packages.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # 提交更改并推送到主仓库
       - name: Commit and push changes
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add .
-          git diff-index --quiet HEAD || git commit -m "Sync packages [skip ci]"
-          git push origin main
+          git commit -m "Sync packages from repositories" || echo "No changes to commit"
+          git push

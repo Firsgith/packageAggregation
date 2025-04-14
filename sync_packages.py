@@ -28,6 +28,12 @@ def clean_existing_files(packages_file):
 
             # 确定需要删除的路径
             target_path = os.path.join(".", folder_path) if folder_path else "."
+            
+            # 跳过当前工作目录（"."）
+            if os.path.abspath(target_path) == os.path.abspath("."):
+                print(f"Skipping removal of current working directory: {target_path}")
+                continue
+
             if os.path.exists(target_path):
                 print(f"Removing existing path: {target_path}")
                 if os.path.isdir(target_path):

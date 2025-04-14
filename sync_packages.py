@@ -16,7 +16,8 @@ def clean_existing_files(packages_file):
             line = line.strip()
             # 跳过空行和注释行
             if not line or line.startswith("#"):
-                print(f"Skipping comment or empty line: {line}")
+                if line.strip().startswith("#") and len(line.strip()) > 1:  # 忽略纯说明性注释
+                    print(f"Skipping comment or empty line: {line}")
                 continue
 
             # 分割仓库地址和目标文件夹路径
@@ -25,10 +26,15 @@ def clean_existing_files(packages_file):
                 continue
             line = line.rstrip(";")  # 去掉末尾的分号
             parts = line.split(",", 1)
+            repo_url = parts[0].strip()
             folder_path = parts[1].strip() if len(parts) > 1 else None
 
+            if not folder_path:
+                print(f"Error: Missing target path for repository in line: {line}")
+                continue
+
             # 确定需要删除的路径
-            target_path = os.path.join(".", folder_path) if folder_path else "."
+            target_path = os.path.join(".", folder_path)
             
             # 跳过当前工作目录（"."）
             if os.path.abspath(target_path) == os.path.abspath("."):
@@ -56,7 +62,8 @@ def sync_repositories(packages_file):
             line = line.strip()
             # 跳过空行和注释行
             if not line or line.startswith("#"):
-                print(f"Skipping comment or empty line: {line}")
+                if line.strip().startswith("#") and len(line.strip()) > 1:  # 忽略纯说明性注释
+                    print(f"Skipping comment or empty line: {line}")
                 continue
 
             # 分割仓库地址和目标文件夹路径
@@ -67,6 +74,10 @@ def sync_repositories(packages_file):
             parts = line.split(",", 1)
             repo_url = parts[0].strip()
             folder_path = parts[1].strip() if len(parts) > 1 else None
+
+            if not folder_path:
+                print(f"Error: Missing target path for repository in line: {line}")
+                continue
 
             # 提取仓库名称作为临时目录名
             repo_name = os.path.basename(repo_url).replace(".git", "")
@@ -86,7 +97,7 @@ def sync_repositories(packages_file):
                 shutil.rmtree(git_dir)
 
             # 确定需要复制的文件夹路径
-            source_path = os.path.join(temp_dir, folder_path) if folder_path else temp_dir
+            source_path = os.path.join(temp_dir, folder_path)
             if not os.path.exists(source_path):
                 print(f"Source path {source_path} does not exist, skipping...")
                 shutil.rmtree(temp_dir)

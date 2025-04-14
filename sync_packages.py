@@ -82,7 +82,10 @@ def remove_deleted_repos(existing_repos):
     current_dirs = {d.name for d in Path(TARGET_DIR).iterdir() if d.is_dir()}
     repos_in_packages = {repo.split("/")[-1].replace(".git", "") for repo, _ in existing_repos}
 
-    for dir_name in current_dirs - repos_in_packages:
+    # 排除 .git 目录
+    protected_dirs = {".git"}
+
+    for dir_name in current_dirs - repos_in_packages - protected_dirs:
         dir_path = Path(TARGET_DIR) / dir_name
         if dir_path.exists():
             logging.info(f"Removing directory {dir_path}")
@@ -107,6 +110,30 @@ def safe_rmtree(path):
         logging.info(f"Directory does not exist: {path}")
 
 
+def is_git_repo():
+    """检查当前目录是否是一个 Git 仓库"""
+    return subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 0
+
+
+def commit_and_push_changes():
+    """提交更改并推送到远程仓库"""
+    if not is_git_repo():
+        logging.error("Not a valid Git repository. Aborting commit and push.")
+        return
+
+    try:
+        subprocess.run(["git", "config", "--global", "user.name", "GitHub Actions"], check=True)
+        subprocess.run(["git", "config", "--global", "user.email", "actions@github.com"], check=True)
+
+        subprocess.run(["git", "add", "."], check=True)
+        if subprocess.run(["git", "diff", "--quiet", "--staged"], capture_output=True).returncode != 0:
+            subprocess.run(["git", "commit", "-m", "Automated sync of packages"], check=True)
+        subprocess.run(["git", "push", "origin", "main"], check=True)
+        logging.info("Changes committed and pushed successfully.")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Failed to commit or push changes: {e.stderr.decode()}")
+
+
 def main():
     # 解析 packages 文件
     repositories = parse_packages_file()
@@ -123,6 +150,9 @@ def main():
 
     # 清理临时目录
     safe_rmtree(TEMP_DIR)
+
+    # 提交更改并推送到远程仓库
+    commit_and_push_changes()
 
 
 if __name__ == "__main__":

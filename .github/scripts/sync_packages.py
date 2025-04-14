@@ -54,6 +54,7 @@ def parse_packages_file():
 # 克隆仓库并同步内容
 def sync_repositories(repos):
     log("Syncing repositories...")
+    skip_dirs = {".git", ".github"}  # 需要跳过的目录
     for repo_url, folder_path in repos:
         log(f"Processing repository: {repo_url}, folder: {folder_path}")
         temp_dir = Path(tempfile.mkdtemp())  # 创建唯一临时目录
@@ -73,8 +74,11 @@ def sync_repositories(repos):
                 shutil.move(source_dir, target_dir)
                 log(f"Copied folder: {folder_path} from {repo_url}")
             else:
-                # 否则复制整个仓库内容
+                # 否则复制整个仓库内容，但跳过指定目录
                 for item in temp_dir.iterdir():
+                    if item.name in skip_dirs:
+                        log(f"Skipping directory: {item.name}")
+                        continue
                     if item.is_dir():
                         shutil.copytree(item, item.name, dirs_exist_ok=True)
                         log(f"Copied directory: {item.name} from {repo_url}")
@@ -95,6 +99,12 @@ def commit_changes():
     subprocess.run(["git", "add", "."], check=True)
     if subprocess.run(["git", "diff", "--staged", "--quiet"]).returncode != 0:
         subprocess.run(["git", "commit", "-m", "Sync packages"], check=True)
+        # 打印分支状态以调试
+        log("Checking branch status...")
+        subprocess.run(["git", "status"], check=True)
+        subprocess.run(["git", "branch", "-vv"], check=True)
+        # 强制拉取最新更改以避免冲突
+        subprocess.run(["git", "pull", "--rebase", "origin", "main"], check=True)
         subprocess.run(["git", "push", "origin", "main"], check=True)
         log("Changes pushed to main branch.")
     else:

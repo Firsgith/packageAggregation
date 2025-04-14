@@ -3,6 +3,7 @@ import shutil
 import subprocess
 from pathlib import Path
 import logging
+import stat
 
 # 设置日志格式
 logging.basicConfig(
@@ -50,12 +51,16 @@ def clone_and_extract(repo_url, sub_path=None):
 
     # 克隆仓库
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["git", "clone", "--depth", "1", repo_url, str(temp_repo_path)],
             check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
+        logging.debug(result.stdout.decode())
+        logging.debug(result.stderr.decode())
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to clone repository {repo_url}: {e}")
+        logging.error(f"Failed to clone repository {repo_url}: {e.stderr.decode()}")
         return
 
     # 提取指定路径的内容
@@ -84,6 +89,24 @@ def remove_deleted_repos(existing_repos):
             shutil.rmtree(dir_path)
 
 
+def safe_rmtree(path):
+    """安全地删除目录及其内容"""
+    def on_error(func, path, exc_info):
+        """处理删除失败的情况"""
+        if not os.access(path, os.W_OK):
+            logging.warning(f"Changing permissions for {path} to make it writable")
+            os.chmod(path, stat.S_IWUSR)
+            func(path)
+        else:
+            logging.warning(f"Failed to remove {path}: {exc_info}")
+
+    if os.path.exists(path):
+        logging.info(f"Attempting to remove directory: {path}")
+        shutil.rmtree(path, onerror=on_error)
+    else:
+        logging.info(f"Directory does not exist: {path}")
+
+
 def main():
     # 解析 packages 文件
     repositories = parse_packages_file()
@@ -99,7 +122,7 @@ def main():
     remove_deleted_repos(repositories)
 
     # 清理临时目录
-    shutil.rmtree(TEMP_DIR)
+    safe_rmtree(TEMP_DIR)
 
 
 if __name__ == "__main__":

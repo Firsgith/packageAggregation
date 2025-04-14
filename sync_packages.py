@@ -2,32 +2,25 @@ import os
 import subprocess
 import shutil
 
-def clean_existing_files(packages_file):
+# 定义记录已同步路径的文件
+SYNCED_PATHS_FILE = ".synced_paths"
+
+def clean_existing_files():
     """
-    清理主仓库中已存在的、由 packages 文件定义的文件或目录。
-    包括注释掉的路径。
+    清理主仓库中已存在的、由 .synced_paths 文件定义的文件或目录。
     """
     print("Cleaning existing files and directories...")
-    if not os.path.exists(packages_file):
-        print(f"Error: {packages_file} not found.")
+    if not os.path.exists(SYNCED_PATHS_FILE):
+        print(f"No synced paths found in {SYNCED_PATHS_FILE}. Skipping cleanup.")
         return
 
-    with open(packages_file, "r") as file:
+    with open(SYNCED_PATHS_FILE, "r") as file:
         for line in file:
             line = line.strip()
-
-            # 提取路径（包括注释行中的路径）
-            if ";" not in line:
-                continue
-            line = line.rstrip(";")  # 去掉末尾的分号
-            parts = line.split(",", 1)
-            folder_path = parts[1].strip() if len(parts) > 1 else None
-
-            if not folder_path:
+            if not line:
                 continue
 
-            # 确定需要删除的路径
-            target_path = os.path.join(".", folder_path)
+            target_path = os.path.join(".", line)
 
             # 跳过当前工作目录（"."）
             if os.path.abspath(target_path) == os.path.abspath("."):
@@ -50,6 +43,9 @@ def sync_repositories(packages_file):
         print(f"Error: {packages_file} not found.")
         return
 
+    # 记录本次同步的路径
+    synced_paths = []
+
     with open(packages_file, "r") as file:
         for line in file:
             line = line.strip()
@@ -65,10 +61,6 @@ def sync_repositories(packages_file):
             parts = line.split(",", 1)
             repo_url = parts[0].strip()
             folder_path = parts[1].strip() if len(parts) > 1 else None
-
-            if not folder_path:
-                print(f"Error: Missing target path for repository in line: {line}")
-                continue
 
             # 提取仓库名称作为临时目录名
             repo_name = os.path.basename(repo_url).replace(".git", "")
@@ -87,33 +79,45 @@ def sync_repositories(packages_file):
             if os.path.exists(git_dir):
                 shutil.rmtree(git_dir)
 
-            # 确定需要复制的文件夹路径
-            source_path = os.path.join(temp_dir, folder_path)
-            if not os.path.exists(source_path):
-                print(f"Source path {source_path} does not exist, skipping...")
-                shutil.rmtree(temp_dir)
-                continue
+            # 确定需要复制的源路径
+            if folder_path:
+                source_path = os.path.join(temp_dir, folder_path)
+                if not os.path.exists(source_path):
+                    print(f"Source path {source_path} does not exist, skipping...")
+                    shutil.rmtree(temp_dir)
+                    continue
+                target_path = os.path.join(".", os.path.basename(source_path))
+            else:
+                source_path = temp_dir
+                target_path = "."
 
-            # 确定目标路径
-            target_dir = "."  # 主仓库的根目录
-            target_path = os.path.join(target_dir, os.path.basename(source_path))
-
-            # 复制整个文件夹到目标路径
+            # 复制文件到目标路径
             print(f"Copying folder {source_path} to {target_path}...")
             if os.path.exists(target_path):
                 shutil.rmtree(target_path)  # 如果目标路径已存在，先删除
-            shutil.copytree(source_path, target_path)
+            shutil.copytree(source_path, target_path, dirs_exist_ok=True)
+
+            # 记录本次同步的路径
+            if folder_path:
+                synced_paths.append(os.path.basename(source_path))
+            else:
+                synced_paths.append(repo_name)
 
             # 清理临时目录
             shutil.rmtree(temp_dir)
             print(f"Synced {repo_name} successfully.")
+
+    # 更新 .synced_paths 文件
+    with open(SYNCED_PATHS_FILE, "w") as file:
+        for path in synced_paths:
+            file.write(f"{path}\n")
 
 if __name__ == "__main__":
     # 主仓库根目录下的 packages 文件路径
     packages_file = "packages"
 
     # 清理已存在的内容
-    clean_existing_files(packages_file)
+    clean_existing_files()
 
     # 同步新的内容
     sync_repositories(packages_file)

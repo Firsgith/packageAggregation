@@ -7,3 +7,6 @@ luci-app-wolplus
 luci-theme-argon
 nas-packages
 nas-packages-luci
+istore
+luci-app-poweroffdevice
+luci-app-easytier

@@ -3,7 +3,6 @@ import shutil
 import subprocess
 from pathlib import Path
 import logging
-import stat
 
 # 设置日志格式
 logging.basicConfig(
@@ -49,16 +48,24 @@ def clone_and_extract(repo_url, sub_path=None):
     if temp_repo_path.exists():
         shutil.rmtree(temp_repo_path)  # 清理旧的临时目录
 
-    # 克隆仓库
+    # 克隆仓库（避免生成 .git 目录）
     try:
-        result = subprocess.run(
-            ["git", "clone", "--depth", "1", repo_url, str(temp_repo_path)],
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                "--filter=blob:none",
+                "--no-checkout",
+                repo_url,
+                str(temp_repo_path),
+            ],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        logging.debug(result.stdout.decode())
-        logging.debug(result.stderr.decode())
+        logging.debug("Repository cloned successfully.")
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed to clone repository {repo_url}: {e.stderr.decode()}")
         return
@@ -70,6 +77,8 @@ def clone_and_extract(repo_url, sub_path=None):
     if source_path.exists():
         if target_path.exists():
             shutil.rmtree(target_path)  # 删除旧内容
+
+        # 复制内容到目标目录
         shutil.copytree(source_path, target_path)
         logging.info(f"Copied contents from {source_path} to {target_path}")
     else:
@@ -79,17 +88,22 @@ def clone_and_extract(repo_url, sub_path=None):
 def remove_deleted_repos(existing_repos):
     """删除不再存在于 packages 文件中的仓库"""
     logging.info("Checking for deleted repositories...")
-    current_dirs = {d.name for d in Path(TARGET_DIR).iterdir() if d.is_dir()}
+    current_items = {item.name for item in Path(TARGET_DIR).iterdir()}  # 获取所有文件和目录
     repos_in_packages = {repo.split("/")[-1].replace(".git", "") for repo, _ in existing_repos}
 
-    # 排除 .git 目录
-    protected_dirs = {".git"}
+    logging.info(f"Current items: {current_items}")
+    logging.info(f"Repositories in packages file: {repos_in_packages}")
 
-    for dir_name in current_dirs - repos_in_packages - protected_dirs:
-        dir_path = Path(TARGET_DIR) / dir_name
-        if dir_path.exists():
-            logging.info(f"Removing directory {dir_path}")
-            shutil.rmtree(dir_path)
+    # 仅删除在 packages 文件中定义的仓库目录
+    for repo_name in repos_in_packages:
+        repo_path = Path(TARGET_DIR) / repo_name
+        if repo_path.exists() and repo_name not in current_items:
+            logging.info(f"Removing repository directory {repo_path}")
+            shutil.rmtree(repo_path)
+
+    # 跳过所有未定义的文件和目录
+    for item_name in current_items - repos_in_packages:
+        logging.info(f"Skipping non-repository item: {item_name}")
 
 
 def safe_rmtree(path):
@@ -98,7 +112,7 @@ def safe_rmtree(path):
         """处理删除失败的情况"""
         if not os.access(path, os.W_OK):
             logging.warning(f"Changing permissions for {path} to make it writable")
-            os.chmod(path, stat.S_IWUSR)
+            os.chmod(path, 0o700)
             func(path)
         else:
             logging.warning(f"Failed to remove {path}: {exc_info}")

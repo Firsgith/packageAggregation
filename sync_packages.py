@@ -90,15 +90,15 @@ def sync_repositories(packages_file):
                 shutil.rmtree(temp_dir)
                 continue
 
-            # 复制文件到主仓库的根目录
-            print(f"Copying files from {source_path} to root directory...")
-            for item in os.listdir(source_path):
-                src = os.path.join(source_path, item)
-                dst = os.path.join(".", item)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst, dirs_exist_ok=True)
-                else:
-                    shutil.copy2(src, dst)
+            # 确定目标路径
+            target_dir = "."  # 主仓库的根目录
+            target_path = os.path.join(target_dir, os.path.basename(source_path))
+
+            # 复制整个文件夹到目标路径
+            print(f"Copying folder {source_path} to {target_path}...")
+            if os.path.exists(target_path):
+                shutil.rmtree(target_path)  # 如果目标路径已存在，先删除
+            shutil.copytree(source_path, target_path)
 
             # 清理临时目录
             shutil.rmtree(temp_dir)

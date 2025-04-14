@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+import tempfile
 
 # 日志输出函数
 def log(message):
@@ -55,7 +56,7 @@ def sync_repositories(repos):
     log("Syncing repositories...")
     for repo_url, folder_path in repos:
         log(f"Processing repository: {repo_url}, folder: {folder_path}")
-        temp_dir = Path("temp_clone")
+        temp_dir = Path(tempfile.mkdtemp())  # 创建唯一临时目录
         try:
             # 克隆仓库到临时目录
             subprocess.run(["git", "clone", "--depth", "1", repo_url, str(temp_dir)], check=True)
@@ -70,15 +71,16 @@ def sync_repositories(repos):
                 if target_dir.exists():
                     shutil.rmtree(target_dir)
                 shutil.move(source_dir, target_dir)
-                log(f"Copied folder: {folder_path}")
+                log(f"Copied folder: {folder_path} from {repo_url}")
             else:
                 # 否则复制整个仓库内容
                 for item in temp_dir.iterdir():
                     if item.is_dir():
                         shutil.copytree(item, item.name, dirs_exist_ok=True)
+                        log(f"Copied directory: {item.name} from {repo_url}")
                     else:
                         shutil.copy2(item, item.name)
-                log(f"Copied entire repository: {repo_url}")
+                        log(f"Copied file: {item.name} from {repo_url}")
         finally:
             # 删除临时克隆目录
             if temp_dir.exists():

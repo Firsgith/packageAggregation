@@ -3,7 +3,7 @@ import subprocess
 import shutil
 
 # 定义记录已同步路径的文件
-SYNCED_PATHS_FILE = ".synced_paths"
+SYNCED_PATHS_FILE = ".github/synced_paths"
 
 def clean_existing_files():
     """

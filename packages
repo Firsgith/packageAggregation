@@ -6,3 +6,5 @@ https://github.com/Firsgith/luci-app-cifs-mount.git;
 https://github.com/Firsgith/luci-app-tailscale.git;
 https://github.com/Firsgith/luci-app-wolplus.git;
 https://github.com/jerrykuku/luci-theme-argon.git;
+https://github.com/linkease/nas-packages.git;
+https://github.com/linkease/nas-packages-luci.git;

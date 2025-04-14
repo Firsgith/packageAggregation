@@ -48,20 +48,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 获取当前仓库的所有 Workflow Runs
-          curl -s -H "Authorization: token $GITHUB_TOKEN" \
-               https://api.github.com/repos/${{ github.repository }}/actions/runs > runs.json
+          # 获取当前仓库的所有 Workflow Runs（处理分页）
+          PAGE=1
+          ALL_RUNS=()
+          while true; do
+            RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs?page=$PAGE&per_page=100")
+            
+            RUNS_COUNT=$(echo "$RESPONSE" | jq '.workflow_runs | length')
+            if [ "$RUNS_COUNT" -eq 0 ]; then
+              break
+            fi
 
-          # 解析 JSON 数据，获取所有 RUN_ID 并按创建时间排序（从新到旧）
-          ALL_RUN_IDS=$(jq -r '.workflow_runs[] | select(.head_branch == "main") | .id' runs.json | sort -nr)
+            # 将当前页的 Runs 添加到数组中
+            CURRENT_PAGE_RUNS=$(echo "$RESPONSE" | jq -r '.workflow_runs[] | select(.head_branch == "main") | "\(.id) \(.created_at)"')
+            ALL_RUNS+=($CURRENT_PAGE_RUNS)
+
+            PAGE=$((PAGE + 1))
+          done
+
+          # 按创建时间排序（从新到旧）
+          SORTED_RUNS=$(printf "%s\n" "${ALL_RUNS[@]}" | sort -k2,2nr)
 
           # 仅保留最近的 3 条，删除其余的
           RUN_COUNT=0
-          for RUN_ID in $ALL_RUN_IDS; do
+          for RUN_INFO in $SORTED_RUNS; do
+            RUN_ID=$(echo "$RUN_INFO" | awk '{print $1}')
             if [ $RUN_COUNT -ge 3 ]; then
               echo "Deleting Workflow Run ID: $RUN_ID"
               curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-                   https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID"
             else
               echo "Keeping Workflow Run ID: $RUN_ID"
             fi

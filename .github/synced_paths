@@ -5,3 +5,5 @@ luci-app-cifs-mount
 luci-app-tailscale
 luci-app-wolplus
 luci-theme-argon
+nas-packages
+nas-packages-luci

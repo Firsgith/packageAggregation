@@ -16,6 +16,7 @@ def clean_existing_files(packages_file):
             line = line.strip()
             # 跳过空行和注释行
             if not line or line.startswith("#"):
+                print(f"Skipping comment or empty line: {line}")
                 continue
 
             # 分割仓库地址和目标文件夹路径
@@ -55,6 +56,7 @@ def sync_repositories(packages_file):
             line = line.strip()
             # 跳过空行和注释行
             if not line or line.startswith("#"):
+                print(f"Skipping comment or empty line: {line}")
                 continue
 
             # 分割仓库地址和目标文件夹路径

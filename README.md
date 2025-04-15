@@ -2,7 +2,6 @@
 
 This repository contains a GitHub Actions workflow that automates the process of syncing packages from repositories and cleaning up old workflow runs. Below are the instructions for setting up and using this workflow.
 
----
 
 ## **Features**
 1. **Sync Packages**:
@@ -13,7 +12,6 @@ This repository contains a GitHub Actions workflow that automates the process of
    - Retain only the latest 3 workflow runs on the `main` branch.
    - Delete older workflow runs to reduce clutter and save storage space.
 
----
 
 ## **Prerequisites**
 
@@ -38,7 +36,6 @@ To ensure the workflow functions correctly, you need to configure the following 
 3. Enable **Allow GitHub Actions to create and approve pull requests**.
    - This ensures the workflow has sufficient permissions to perform actions like committing changes and deleting runs.
 
----
 
 ## **How It Works**
 1. **Triggering the Workflow**:
@@ -52,7 +49,6 @@ To ensure the workflow functions correctly, you need to configure the following 
    - The workflow fetches all runs on the `main` branch and retains only the latest 3 runs.
    - Older runs are deleted to reduce clutter and save storage space.
 
----
 
 ## **Troubleshooting**
 
@@ -70,12 +66,10 @@ To ensure the workflow functions correctly, you need to configure the following 
     echo "API Response: $RESPONSE"
     ```
 
----
 
 ## **Contributing**
 If you find any issues or have suggestions for improvements, feel free to open an issue or submit a pull request.
 
----
 
 ## **License**
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

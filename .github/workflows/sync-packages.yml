@@ -61,7 +61,7 @@ jobs:
             fi
 
             # 将当前页的 Runs 添加到数组中
-            CURRENT_PAGE_RUNS=$(echo "$RESPONSE" | jq -r '.workflow_runs[] | select(.head_branch == "main") | "\(.id) \(.created_at)"')
+            CURRENT_PAGE_RUNS=$(echo "$RESPONSE" | jq -r '.workflow_runs[] | select(.head_branch == "main") | "\(.id)"')
             ALL_RUNS+=($CURRENT_PAGE_RUNS)
 
             echo "Page $PAGE: Found $RUNS_COUNT runs"
@@ -69,13 +69,11 @@ jobs:
           done
 
           # 按创建时间排序（从新到旧）
-          SORTED_RUNS=$(printf "%s\n" "${ALL_RUNS[@]}" | sort -k2,2nr)
+          SORTED_RUNS=$(printf "%s\n" "${ALL_RUNS[@]}" | sort -nr)
 
           # 仅保留最近的 3 条，删除其余的
           RUN_COUNT=0
-          for RUN_INFO in $SORTED_RUNS; do
-            RUN_ID=$(echo "$RUN_INFO" | awk '{print $1}')
-            
+          for RUN_ID in $SORTED_RUNS; do
             # 验证 Run ID 是否有效
             STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Authorization: token $GITHUB_TOKEN" \
@@ -87,8 +85,14 @@ jobs:
 
             if [ $RUN_COUNT -ge 3 ]; then
               echo "Deleting Workflow Run ID: $RUN_ID"
-              curl -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID"
+              DELETE_RESPONSE=$(curl -X DELETE -s -o /dev/null -w "%{http_code}" \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID")
+              if [ "$DELETE_RESPONSE" -eq 204 ]; then
+                echo "Successfully deleted Run ID $RUN_ID"
+              else
+                echo "Failed to delete Run ID $RUN_ID (HTTP $DELETE_RESPONSE)"
+              fi
             else
               echo "Keeping Workflow Run ID: $RUN_ID"
             fi

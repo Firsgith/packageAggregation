@@ -88,7 +88,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 该存储库包含一个 GitHub Actions 工作流，用于自动从存储库中同步包，并清理旧的工作流运行记录。以下是设置和使用此工作流的说明。
 
----
 
 ## **功能**
 1. **同步包**：
@@ -99,7 +98,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
    - 仅保留 `main` 分支上的最新 3 条工作流运行记录。
    - 删除较旧的运行记录以减少混乱并节省存储空间。
 
----
 
 ## **先决条件**
 
@@ -124,7 +122,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 3. 启用 **Allow GitHub Actions to create and approve pull requests**。
    - 这确保工作流有足够的权限执行提交更改和删除运行记录等操作。
 
----
 
 ## **工作原理**
 1. **触发工作流**：
@@ -138,7 +135,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
    - 工作流会获取 `main` 分支上的所有运行记录，并仅保留最新的 3 条。
    - 较旧的运行记录会被删除以减少混乱并节省存储空间。
 
----
 
 ## **故障排除**
 
@@ -156,14 +152,11 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
     echo "API Response: $RESPONSE"
     ```
 
----
 
 ## **贡献**
 如果您发现问题或有任何改进建议，请随时提交问题或发起拉取请求。
 
----
 
 ## **许可证**
 本项目采用 MIT 许可证。有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
 
----
